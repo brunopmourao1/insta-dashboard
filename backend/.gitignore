@@ -1,0 +1,10 @@
+# Environment (NUNCA commitar)
+.env
+.env.local
+.env.*.local
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
