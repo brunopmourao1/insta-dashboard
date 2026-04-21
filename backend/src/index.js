@@ -39,7 +39,7 @@ app.get('/api/health', async (req, res) => {
   try {
     const sql = (await import('./db.js')).default
     await sql`SELECT 1`
-    res.json({ status: 'ok', db: 'connected', timestamp: new Date().toISOString() })
+    res.json({ status: 'ok', db: 'connected', version: '1.1.0', timestamp: new Date().toISOString() })
   } catch (err) {
     res.status(503).json({ status: 'error', db: 'disconnected', error: err.message })
   }
