@@ -14,7 +14,7 @@ export function getAuthUrl() {
   const params = new URLSearchParams({
     client_id: APP_ID,
     redirect_uri: REDIRECT_URI,
-    scope: 'instagram_business_basic',
+    scope: 'instagram_business_basic,instagram_business_manage_insights',
     response_type: 'code',
   })
   console.log('[Instagram] Auth URL gerada:', `${AUTH_BASE}/oauth/authorize?${params}`)
