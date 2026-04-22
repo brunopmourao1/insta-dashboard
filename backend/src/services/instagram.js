@@ -123,8 +123,9 @@ async function getDailyInsights(igUserId, token, daysBack) {
   const until = Math.floor(Date.now() / 1000)
   const since = until - daysBack * 24 * 60 * 60
 
+  // 'views' substitui 'impressions' na versão atual da API
   const params = new URLSearchParams({
-    metric: 'reach,impressions,profile_views,website_clicks',
+    metric: 'reach,views,profile_views,website_clicks',
     period: 'day',
     since: since.toString(),
     until: until.toString(),
@@ -166,7 +167,7 @@ export async function syncAccountMetrics(accountId, igUserId, token, sql, daysBa
         (account_id, date, followers, reach, impressions, profile_views, website_clicks)
       VALUES
         (${accountId}, ${date}, ${profile.followers_count || 0},
-         ${metrics.reach || 0}, ${metrics.impressions || 0},
+         ${metrics.reach || 0}, ${metrics.views || 0},
          ${metrics.profile_views || 0}, ${metrics.website_clicks || 0})
       ON CONFLICT (account_id, date) DO UPDATE SET
         followers      = EXCLUDED.followers,
