@@ -55,6 +55,7 @@ export async function exchangeCodeForToken(code) {
 }
 
 export async function getLongLivedToken(shortLivedToken) {
+  console.log('[Instagram] Trocando por token de longa duração...')
   const params = new URLSearchParams({
     grant_type: 'ig_exchange_token',
     client_secret: APP_SECRET,
@@ -62,7 +63,15 @@ export async function getLongLivedToken(shortLivedToken) {
   })
 
   const res = await fetch(`${API_BASE}/access_token?${params}`)
-  const data = await res.json()
+  const text = await res.text()
+  console.log('[Instagram] Resposta long-lived token:', text)
+
+  let data
+  try {
+    data = JSON.parse(text)
+  } catch {
+    throw new Error(`Resposta inválida (long-lived): ${text}`)
+  }
   if (data.error) throw new Error(data.error?.message || 'Erro ao obter token de longa duração')
   return data // { access_token, token_type, expires_in }
 }
@@ -82,13 +91,22 @@ export async function refreshLongLivedToken(currentToken) {
 // ── Graph API ──────────────────────────────────────────────────────────────
 
 export async function getUserProfile(igUserId, token) {
+  console.log('[Instagram] Buscando perfil do usuário:', igUserId)
   const params = new URLSearchParams({
     fields: 'id,username,name,profile_picture_url,followers_count,follows_count,media_count',
     access_token: token,
   })
 
   const res = await fetch(`${API_BASE}/${igUserId}?${params}`)
-  const data = await res.json()
+  const text = await res.text()
+  console.log('[Instagram] Resposta perfil:', text)
+
+  let data
+  try {
+    data = JSON.parse(text)
+  } catch {
+    throw new Error(`Resposta inválida (perfil): ${text}`)
+  }
   if (data.error) throw new Error(data.error?.message || 'Erro ao buscar perfil')
   return data
 }
