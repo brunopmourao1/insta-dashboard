@@ -24,3 +24,22 @@ services:
         sync: false
       - key: FRONTEND_URL
         sync: false
+
+  - type: cron
+    name: gestao-jaque-daily-sync
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    schedule: "0 6 * * *"
+    command: node src/cron-sync.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false

@@ -200,16 +200,25 @@ function AggregateKpis({ accounts, range }) {
   const impressionsChange = pctChange(summary.total_impressions, summary.prev_impressions)
   const engagementChange = pctChange(Number(summary.avg_engagement), Number(summary.prev_engagement))
 
-  const followerGain   = (summary.current_followers || 0) - (summary.start_followers || 0)
-  // Compara seguidores atuais vs contagem do período anterior
-  const followerChange = pctChange(summary.current_followers, summary.prev_followers)
+  const hasFollowerHistory = (summary.start_followers || 0) > 0
+  const followerGain   = hasFollowerHistory
+    ? (summary.current_followers || 0) - (summary.start_followers || 0)
+    : null
+  const followerChange = hasFollowerHistory
+    ? pctChange(summary.current_followers, summary.prev_followers)
+    : null
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
       <KpiCard label="Total Reach"       value={summary.total_reach}                            change={reachChange}       icon={Eye} />
       <KpiCard label="Impressões"        value={summary.total_impressions}                      change={impressionsChange}  icon={Hash} />
       <KpiCard label="Engagement Rate"   value={Number(summary.avg_engagement).toFixed(1)}      change={engagementChange}  suffix="%" icon={Heart} />
-      <KpiCard label="Seguidores Ganhos" value={followerGain >= 0 ? `+${followerGain}` : followerGain} change={followerChange} icon={Users} />
+      <KpiCard
+        label={hasFollowerHistory ? 'Seguidores Ganhos' : 'Seguidores Hoje'}
+        value={followerGain !== null ? (followerGain >= 0 ? `+${followerGain}` : followerGain) : summary.current_followers}
+        change={followerChange}
+        icon={Users}
+      />
     </div>
   )
 }

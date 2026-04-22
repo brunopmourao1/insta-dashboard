@@ -97,13 +97,14 @@ export default function Audiencia() {
     .reverse()
     .map((m, i) => ({ day: i + 1, followers: m.followers || 0 }))
 
-  // Ganho de seguidores do banco (mais preciso que min/max da série)
-  const followerGain     = (summary?.current_followers || 0) - (summary?.start_followers || 0)
-  const currentFollowers = summary?.current_followers || metrics[0]?.followers || 0
-  const startFollowers   = summary?.start_followers   || metrics[metrics.length - 1]?.followers || 1
-  const growthPct = startFollowers > 0
-    ? (((currentFollowers - startFollowers) / startFollowers) * 100).toFixed(1)
-    : '0.0'
+  const currentFollowers  = summary?.current_followers || metrics[0]?.followers || 0
+  const hasFollowerHistory = (summary?.start_followers || 0) > 0
+  const followerGain      = hasFollowerHistory
+    ? (summary?.current_followers || 0) - (summary?.start_followers || 0)
+    : null
+  const growthPct = hasFollowerHistory && summary.start_followers > 0
+    ? (((currentFollowers - summary.start_followers) / summary.start_followers) * 100).toFixed(1)
+    : null
 
   return (
     <div className="space-y-6">
@@ -130,7 +131,7 @@ export default function Audiencia() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {followerGain !== 0 && (
+              {followerGain !== null && (
                 <span className={clsx(
                   'text-xs font-semibold px-2 py-0.5 rounded-full font-display',
                   followerGain >= 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10'
@@ -138,12 +139,14 @@ export default function Audiencia() {
                   {followerGain >= 0 ? '+' : ''}{followerGain.toLocaleString('pt-BR')} seguidores
                 </span>
               )}
-              <span className={clsx(
-                'text-xs font-semibold px-2 py-0.5 rounded-full',
-                growthPct >= 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10'
-              )}>
-                {growthPct > 0 ? '+' : ''}{growthPct}%
-              </span>
+              {growthPct !== null && (
+                <span className={clsx(
+                  'text-xs font-semibold px-2 py-0.5 rounded-full',
+                  growthPct >= 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10'
+                )}>
+                  {growthPct > 0 ? '+' : ''}{growthPct}%
+                </span>
+              )}
             </div>
           </div>
           {followerGrowth.length > 0 ? (

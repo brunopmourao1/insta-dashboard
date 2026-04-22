@@ -16,28 +16,37 @@ const TAG_COLORS = ['#ffafd2', '#e3b5ff', '#ffb1c0', '#564149', '#c13584', '#cb8
 function PostRow({ post, rank }) {
   const Icon = TYPE_ICON[post.type] || Rows3
   return (
-    <div className="flex items-center gap-4 py-3 border-b border-outline-variant/10 last:border-0">
-      <span className="font-display text-sm font-bold text-on-surface-variant w-5 text-center">
+    <div className="flex items-center gap-3 py-3 border-b border-outline-variant/10 last:border-0">
+      <span className="font-display text-xs font-bold text-on-surface-variant w-5 text-center shrink-0">
         {String(rank).padStart(2, '0')}
       </span>
-      <div className="w-8 h-8 rounded-lg bg-primary-container/20 flex items-center justify-center shrink-0">
-        <Icon size={14} className="text-primary" />
+      <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-primary-container/20 flex items-center justify-center">
+        {post.thumbnail ? (
+          <img
+            src={post.thumbnail}
+            alt=""
+            className="w-full h-full object-cover"
+            onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextSibling.style.display = 'flex' }}
+          />
+        ) : null}
+        <div className={`w-full h-full items-center justify-center ${post.thumbnail ? 'hidden' : 'flex'}`}>
+          <Icon size={16} className="text-primary" />
+        </div>
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm text-on-surface font-medium truncate">{post.title}</p>
-        <p className="text-xs text-on-surface-variant">
+        <p className="text-xs text-on-surface-variant mt-0.5">
           {post.type} · {new Date(post.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
         </p>
+        <div className="flex items-center gap-3 mt-1">
+          <span className="text-[10px] text-on-surface-variant">{post.reach >= 1000 ? `${(post.reach / 1000).toFixed(1)}K` : post.reach} alcance</span>
+          <span className="text-[10px] text-on-surface-variant">{post.likes} likes</span>
+          {post.saves > 0 && <span className="text-[10px] text-on-surface-variant">{post.saves} salvos</span>}
+        </div>
       </div>
       <div className="text-right shrink-0">
-        <p className="text-xs text-on-surface-variant">Eng. Rate</p>
+        <p className="text-xs text-on-surface-variant">Eng.</p>
         <p className="font-display text-sm font-bold text-primary">{post.engagementRate}%</p>
-      </div>
-      <div className="text-right shrink-0">
-        <p className="text-xs text-on-surface-variant">Likes</p>
-        <p className="font-display text-sm font-semibold text-on-surface">
-          {post.likes >= 1000 ? `${(post.likes / 1000).toFixed(1)}K` : post.likes}
-        </p>
       </div>
     </div>
   )

@@ -126,8 +126,13 @@ export default function Performance() {
 
   const reachChange      = pctChange(summary?.total_reach, summary?.prev_reach)
   const engagementChange = pctChange(Number(avgEngagement), Number(summary?.prev_engagement))
-  const followerGain   = (summary?.current_followers || 0) - (summary?.start_followers || 0)
-  const followerChange = pctChange(summary?.current_followers, summary?.prev_followers)
+  const hasFollowerHistory = (summary?.start_followers || 0) > 0
+  const followerGain   = hasFollowerHistory
+    ? (summary?.current_followers || 0) - (summary?.start_followers || 0)
+    : null
+  const followerChange = hasFollowerHistory
+    ? pctChange(summary?.current_followers, summary?.prev_followers)
+    : null
 
   return (
     <div className="space-y-6">
@@ -151,7 +156,12 @@ export default function Performance() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
           <KpiCard label="Total Reach"       value={summary.total_reach}                               change={reachChange}      icon={Eye} />
           <KpiCard label="Engagement Rate"   value={avgEngagement}                                     change={engagementChange} suffix="%" icon={Heart} />
-          <KpiCard label="Seguidores Ganhos" value={followerGain >= 0 ? `+${followerGain}` : followerGain} change={followerChange}   icon={Users} />
+          <KpiCard
+            label={hasFollowerHistory ? 'Seguidores Ganhos' : 'Seguidores Hoje'}
+            value={followerGain !== null ? (followerGain >= 0 ? `+${followerGain}` : followerGain) : (summary?.current_followers ?? '--')}
+            change={followerChange}
+            icon={Users}
+          />
           <KpiCard label="Impressões"        value={summary.total_impressions}                          change={pctChange(summary.total_impressions, summary.prev_impressions)} icon={Hash} />
         </div>
       )}

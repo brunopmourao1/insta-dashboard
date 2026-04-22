@@ -269,18 +269,29 @@ export async function syncAccountMetrics(accountId, igUserId, token, sql, daysBa
   }
 
   const stored = []
-
   const today = new Date().toISOString().split('T')[0]
+
+  // Limpa dados históricos corrompidos: rows anteriores a hoje que têm o valor
+  // atual de seguidores foram gravadas pelo sync antigo (bug). Zerá-las permite
+  // que a lógica de "ganho" funcione corretamente a partir de hoje.
+  await sql`
+    UPDATE metrics_history
+    SET followers = 0
+    WHERE account_id = ${accountId}
+      AND date < ${today}
+      AND followers = ${profile.followers_count || 0}
+  `
 
   if (insightsAvailable && Object.keys(byDay).length > 0) {
     for (const [date, metrics] of Object.entries(byDay)) {
-      // Seguidores: só atualiza para hoje — datas passadas preservam o valor original
-      // (evita sobrescrever histórico com o count atual sempre que sincroniza)
+      // Seguidores reais só existem para hoje — datas históricas recebem 0 no INSERT
+      // e nunca são sobrescritas no UPDATE (o CASE WHEN garante isso)
+      const followersValue = date === today ? (profile.followers_count || 0) : 0
       const [row] = await sql`
         INSERT INTO metrics_history
           (account_id, date, followers, reach, impressions, profile_views, website_clicks)
         VALUES
-          (${accountId}, ${date}, ${profile.followers_count || 0},
+          (${accountId}, ${date}, ${followersValue},
            ${metrics.reach || 0}, ${metrics.views || 0},
            ${metrics.profile_views || 0}, ${metrics.website_clicks || 0})
         ON CONFLICT (account_id, date) DO UPDATE SET
@@ -297,7 +308,6 @@ export async function syncAccountMetrics(accountId, igUserId, token, sql, daysBa
     }
   } else {
     // Fallback: salva apenas seguidores de hoje
-    const today = new Date().toISOString().split('T')[0]
     const [row] = await sql`
       INSERT INTO metrics_history (account_id, date, followers)
       VALUES (${accountId}, ${today}, ${profile.followers_count || 0})

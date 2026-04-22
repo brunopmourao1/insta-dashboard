@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+import { Check } from 'lucide-react'
 import { PERIOD_FILTERS } from '../../lib/constants'
 import { useFilter } from '../../contexts/FilterContext'
 import clsx from 'clsx'
@@ -5,10 +7,28 @@ import clsx from 'clsx'
 export default function PeriodFilter() {
   const { period, setPeriod, customFrom, setCustomFrom, customTo, setCustomTo, compare, setCompare } = useFilter()
 
+  const [draftFrom, setDraftFrom] = useState(customFrom || '')
+  const [draftTo, setDraftTo] = useState(customTo || '')
+
+  // Reset drafts whenever user switches back to custom period
+  useEffect(() => {
+    if (period === 'custom') {
+      setDraftFrom(customFrom || '')
+      setDraftTo(customTo || '')
+    }
+  }, [period]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const canApply = draftFrom && draftTo && (draftFrom !== customFrom || draftTo !== customTo)
+
+  function handleApply() {
+    if (!draftFrom || !draftTo) return
+    setCustomFrom(draftFrom)
+    setCustomTo(draftTo)
+  }
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        {/* Filtros com scroll horizontal no mobile */}
         <div className="overflow-x-auto pb-1 -mb-1 scrollbar-none">
           <div className="flex items-center gap-1 bg-surface-low rounded-xl p-1 w-max">
             {PERIOD_FILTERS.map(({ label, value }) => (
@@ -28,7 +48,6 @@ export default function PeriodFilter() {
           </div>
         </div>
 
-        {/* Toggle comparação */}
         <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
           <div
             onClick={() => setCompare(!compare)}
@@ -48,30 +67,42 @@ export default function PeriodFilter() {
         </label>
       </div>
 
-      {/* Inputs de data para período customizado */}
       {period === 'custom' && (
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-on-surface-variant">De</span>
           <input
             type="date"
-            value={customFrom}
-            max={customTo || undefined}
-            onChange={(e) => setCustomFrom(e.target.value)}
+            value={draftFrom}
+            max={draftTo || undefined}
+            onChange={(e) => setDraftFrom(e.target.value)}
             className="bg-surface-low border border-outline-variant/20 rounded-xl px-3 py-1.5 text-xs text-on-surface outline-none focus:border-primary-container transition-colors"
           />
           <span className="text-xs text-on-surface-variant">até</span>
           <input
             type="date"
-            value={customTo}
-            min={customFrom || undefined}
-            onChange={(e) => setCustomTo(e.target.value)}
+            value={draftTo}
+            min={draftFrom || undefined}
+            onChange={(e) => setDraftTo(e.target.value)}
             className="bg-surface-low border border-outline-variant/20 rounded-xl px-3 py-1.5 text-xs text-on-surface outline-none focus:border-primary-container transition-colors"
           />
-          {customFrom && customTo && (
-            <span className="text-xs text-primary font-medium">
-              {Math.round((new Date(customTo) - new Date(customFrom)) / 86_400_000) + 1} dias
+          {draftFrom && draftTo && (
+            <span className="text-xs text-on-surface-variant">
+              {Math.round((new Date(draftTo) - new Date(draftFrom)) / 86_400_000) + 1} dias
             </span>
           )}
+          <button
+            onClick={handleApply}
+            disabled={!canApply}
+            className={clsx(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all',
+              canApply
+                ? 'gradient-primary text-on-primary hover:opacity-90'
+                : 'bg-surface-highest text-on-surface-variant opacity-50 cursor-not-allowed',
+            )}
+          >
+            <Check size={11} />
+            Aplicar
+          </button>
         </div>
       )}
     </div>
