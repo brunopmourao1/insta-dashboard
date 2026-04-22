@@ -5,8 +5,7 @@ import PeriodFilter from '../components/ui/PeriodFilter'
 import AccountSelector from '../components/ui/AccountSelector'
 import ReachAreaChart from '../components/charts/ReachAreaChart'
 import TagsPieChart from '../components/charts/TagsPieChart'
-import { useAccounts, useMetrics, useTagsSummary, useNotes, useCreateNote } from '../hooks/useApi'
-import { topPosts } from '../data/mock'
+import { useAccounts, useMetrics, useTagsSummary, useNotes, useCreateNote, useTopPosts } from '../hooks/useApi'
 
 const TYPE_ICON = { Reels: Film, Carrossel: LayoutGrid, Post: Rows3 }
 const tabs = ['Overview', 'Reels', 'Carrosséis']
@@ -131,6 +130,7 @@ export default function Conteudo() {
   const { data: metrics = [] } = useMetrics(currentId)
   const { data: tagsSummary = [] } = useTagsSummary(currentId)
   const { data: notes = [] } = useNotes(currentId)
+  const { data: topPosts = [], isLoading: postsLoading } = useTopPosts(currentId)
 
   // Transforma métricas do banco em formato do gráfico
   const reachTimeline = metrics.map((m, i) => ({
@@ -189,9 +189,15 @@ export default function Conteudo() {
               <p className="text-xs text-on-surface-variant mt-0.5">Ordenado por high-intent actions</p>
             </div>
           </div>
-          {topPosts.map((post, i) => (
-            <PostRow key={post.id} post={post} rank={i + 1} />
-          ))}
+          {postsLoading ? (
+            <div className="space-y-3">
+              {[1,2,3].map(i => <div key={i} className="h-14 bg-surface-highest rounded-lg animate-pulse" />)}
+            </div>
+          ) : topPosts.length > 0 ? (
+            topPosts.map((post, i) => <PostRow key={post.id} post={post} rank={i + 1} />)
+          ) : (
+            <p className="text-xs text-on-surface-variant py-4 text-center">Nenhum post encontrado</p>
+          )}
         </div>
 
         <div className="bg-surface-low rounded-xl p-4 md:p-5 border border-outline-variant/10">

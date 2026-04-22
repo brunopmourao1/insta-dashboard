@@ -53,6 +53,34 @@ export function useCreateNote() {
   })
 }
 
+// ── Instagram ──
+export function useTopPosts(accountId) {
+  return useQuery({
+    queryKey: ['top-posts', accountId],
+    queryFn: () => api.getTopPosts(accountId),
+    enabled: !!accountId,
+    staleTime: 10 * 60_000,
+  })
+}
+
+export function useDemographics(accountId) {
+  return useQuery({
+    queryKey: ['demographics', accountId],
+    queryFn: () => api.getDemographics(accountId),
+    enabled: !!accountId,
+    staleTime: 60 * 60_000,
+  })
+}
+
+export function useHeatmap(accountId) {
+  return useQuery({
+    queryKey: ['heatmap', accountId],
+    queryFn: () => api.getHeatmap(accountId),
+    enabled: !!accountId,
+    staleTime: 10 * 60_000,
+  })
+}
+
 // ── Export helpers ──
 export function useExportData(accountId) {
   const metrics = useMetrics(accountId)

@@ -86,4 +86,10 @@ export const api = {
     request('/instagram/sync', { method: 'POST', body: JSON.stringify({ days }) }),
   refreshInstagramToken: (accountId) =>
     request(`/instagram/refresh-token/${accountId}`, { method: 'POST' }),
+  getTopPosts: (accountId, limit = 12) =>
+    request(`/instagram/media/${accountId}?limit=${limit}`),
+  getDemographics: (accountId) =>
+    request(`/instagram/demographics/${accountId}`),
+  getHeatmap: (accountId) =>
+    request(`/instagram/heatmap/${accountId}`),
 }

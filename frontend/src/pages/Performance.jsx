@@ -6,8 +6,8 @@ import PeriodFilter from '../components/ui/PeriodFilter'
 import AccountSelector from '../components/ui/AccountSelector'
 import RetentionChart from '../components/charts/RetentionChart'
 import HeatmapGrid from '../components/charts/HeatmapGrid'
-import { useAccounts, useMetricsSummary } from '../hooks/useApi'
-import { reelsRetention, heatmapData, hourEfficiency } from '../data/mock'
+import { useAccounts, useMetricsSummary, useHeatmap } from '../hooks/useApi'
+import { reelsRetention } from '../data/mock'
 
 const efficiencyConfig = {
   high: { label: 'Alto', color: 'text-emerald-400', bg: 'bg-emerald-400/10', dot: 'bg-emerald-400' },
@@ -37,6 +37,9 @@ export default function Performance() {
   const currentId = accountId || accounts[0]?.id
 
   const { data: summary, isLoading } = useMetricsSummary(currentId, 30)
+  const { data: heatmapResult } = useHeatmap(currentId)
+  const heatmapData = heatmapResult?.heatmap
+  const hourEfficiency = heatmapResult?.efficiency || []
 
   return (
     <div className="space-y-6">
@@ -89,9 +92,10 @@ export default function Performance() {
             <h2 className="font-display font-semibold text-on-surface">Eficiência de Horário</h2>
           </div>
           <div>
-            {hourEfficiency.map((item, i) => (
-              <EfficiencyRow key={i} item={item} />
-            ))}
+            {hourEfficiency.length > 0
+            ? hourEfficiency.map((item, i) => <EfficiencyRow key={i} item={item} />)
+            : <p className="text-xs text-on-surface-variant py-4 text-center">Aguardando dados...</p>
+          }
           </div>
         </div>
       </div>
@@ -104,7 +108,10 @@ export default function Performance() {
             Audiência online vs presença com engajamento ativo
           </p>
         </div>
-        <HeatmapGrid data={heatmapData} />
+        {heatmapData
+          ? <HeatmapGrid data={heatmapData} />
+          : <div className="h-32 flex items-center justify-center text-xs text-on-surface-variant animate-pulse">Calculando heatmap...</div>
+        }
       </div>
     </div>
   )

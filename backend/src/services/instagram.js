@@ -96,6 +96,96 @@ export async function refreshLongLivedToken(currentToken) {
 
 // ── Graph API ──────────────────────────────────────────────────────────────
 
+export async function fetchMedia(token, limit = 12) {
+  const params = new URLSearchParams({
+    fields: 'id,media_type,caption,timestamp,like_count,comments_count,media_url,thumbnail_url',
+    limit: String(limit),
+    access_token: token,
+  })
+  const res = await fetch(`${API_BASE}/me/media?${params}`)
+  const data = await res.json()
+  if (data.error) throw new Error(data.error?.message || 'Erro ao buscar mídia')
+  return data.data || []
+}
+
+export async function fetchMediaInsights(mediaId, token) {
+  const params = new URLSearchParams({
+    metric: 'reach,shares,saved',
+    access_token: token,
+  })
+  const res = await fetch(`${API_BASE}/${mediaId}/insights?${params}`)
+  const data = await res.json()
+  if (data.error) return {}
+  const result = {}
+  for (const m of data.data || []) {
+    result[m.name] = m.values?.[0]?.value ?? m.value ?? 0
+  }
+  return result
+}
+
+export async function fetchDemographics(token) {
+  const breakdowns = ['age', 'gender', 'city']
+  const results = await Promise.allSettled(
+    breakdowns.map(async (breakdown) => {
+      const params = new URLSearchParams({
+        metric: 'follower_demographics',
+        period: 'lifetime',
+        breakdown,
+        access_token: token,
+      })
+      const res = await fetch(`${API_BASE}/me/insights?${params}`)
+      const data = await res.json()
+      if (data.error) throw new Error(data.error?.message)
+      return { breakdown, data }
+    })
+  )
+
+  const parsed = { gender: [], age: [], cities: [] }
+
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue
+    const { breakdown, data } = result.value
+
+    // Suporta formato novo (total_value.breakdowns) e antigo (data[].values)
+    const items =
+      data.data?.[0]?.total_value?.breakdowns?.[0]?.results ||
+      data.data?.[0]?.values ||
+      []
+
+    const total = items.reduce((s, r) => s + (r.value ?? 0), 0)
+    if (total === 0) continue
+
+    if (breakdown === 'gender') {
+      parsed.gender = items.map((r) => {
+        const key = r.dimension_values?.[0] ?? r.name ?? ''
+        return {
+          name: key === 'M' ? 'Masculino' : key === 'F' ? 'Feminino' : 'Outro',
+          value: Math.round((r.value / total) * 100),
+          color: key === 'F' ? '#ffafd2' : key === 'M' ? '#e3b5ff' : '#564149',
+        }
+      })
+    } else if (breakdown === 'age') {
+      parsed.age = items
+        .map((r) => ({
+          range: r.dimension_values?.[0] ?? r.name ?? '',
+          value: Math.round((r.value / total) * 100),
+        }))
+        .filter((a) => a.range)
+        .sort((a, b) => a.range.localeCompare(b.range))
+    } else if (breakdown === 'city') {
+      parsed.cities = items
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5)
+        .map((r) => ({
+          city: r.dimension_values?.[0] ?? r.name ?? '',
+          value: Math.round((r.value / total) * 100),
+        }))
+    }
+  }
+
+  return parsed
+}
+
 export async function getUserProfile(igUserId, token) {
   // Usa /me em vez de /{id} para evitar problemas de precisão numérica
   const endpoint = `${API_BASE}/me`

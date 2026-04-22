@@ -5,8 +5,7 @@ import clsx from 'clsx'
 import PeriodFilter from '../components/ui/PeriodFilter'
 import AccountSelector from '../components/ui/AccountSelector'
 import FollowerGrowthChart from '../components/charts/FollowerGrowthChart'
-import { useAccounts, useMetrics } from '../hooks/useApi'
-import { audienceGender, audienceAge, topLocations } from '../data/mock'
+import { useAccounts, useMetrics, useDemographics } from '../hooks/useApi'
 
 const activityByHour = [
   { hour: '06h', value: 15 }, { hour: '08h', value: 32 }, { hour: '10h', value: 48 },
@@ -61,7 +60,12 @@ export default function Audiencia() {
   const currentId = accountId || accounts[0]?.id
 
   const { data: metrics = [] } = useMetrics(currentId)
-  const maxAge = Math.max(...audienceAge.map((a) => a.value))
+  const { data: demo = {} } = useDemographics(currentId)
+
+  const audienceGender = demo.gender || []
+  const audienceAge = demo.age || []
+  const topLocations = demo.cities || []
+  const maxAge = audienceAge.length > 0 ? Math.max(...audienceAge.map((a) => a.value)) : 1
 
   // Dados de crescimento de seguidores do banco
   const followerGrowth = metrics
