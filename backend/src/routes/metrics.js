@@ -32,27 +32,35 @@ router.get('/', async (req, res) => {
   }
 })
 
-// GET /api/metrics/summary?account_id=X&days=30
+// GET /api/metrics/summary?account_id=X&from=DATE&to=DATE&prev_from=DATE&prev_to=DATE
+// Retorna período atual + período anterior para calcular variação %
 router.get('/summary', async (req, res) => {
-  const { account_id, days = 30 } = req.query
+  const { account_id, from, to, prev_from, prev_to } = req.query
 
   if (!account_id) return res.status(400).json({ error: 'account_id obrigatório' })
+  if (!from || !to)  return res.status(400).json({ error: 'from e to são obrigatórios' })
 
   try {
     const [summary] = await sql`
       SELECT
-        COUNT(*)::int                       AS total_days,
-        COALESCE(SUM(reach), 0)::int        AS total_reach,
-        COALESCE(SUM(impressions), 0)::int  AS total_impressions,
-        COALESCE(AVG(engagement_rate), 0)   AS avg_engagement,
-        COALESCE(MAX(followers), 0)::int    AS current_followers,
-        COALESCE(MIN(followers), 0)::int    AS start_followers,
-        COALESCE(SUM(posts_count), 0)::int  AS total_posts,
-        COALESCE(SUM(stories_count), 0)::int AS total_stories,
-        COALESCE(SUM(reels_count), 0)::int  AS total_reels
+        COUNT(CASE WHEN date BETWEEN ${from} AND ${to} THEN 1 END)::int AS total_days,
+        COALESCE(SUM(CASE WHEN date BETWEEN ${from} AND ${to} THEN reach       END), 0)::int AS total_reach,
+        COALESCE(SUM(CASE WHEN date BETWEEN ${from} AND ${to} THEN impressions END), 0)::int AS total_impressions,
+        COALESCE(AVG(CASE WHEN date BETWEEN ${from} AND ${to} THEN NULLIF(engagement_rate, 0) END), 0) AS avg_engagement,
+        COALESCE(MAX(CASE WHEN date BETWEEN ${from} AND ${to} THEN followers   END), 0)::int AS current_followers,
+        COALESCE(MIN(CASE WHEN date BETWEEN ${from} AND ${to} THEN NULLIF(followers, 0) END), 0)::int AS start_followers,
+        COALESCE(SUM(CASE WHEN date BETWEEN ${from} AND ${to} THEN posts_count   END), 0)::int AS total_posts,
+        COALESCE(SUM(CASE WHEN date BETWEEN ${from} AND ${to} THEN stories_count END), 0)::int AS total_stories,
+        COALESCE(SUM(CASE WHEN date BETWEEN ${from} AND ${to} THEN reels_count   END), 0)::int AS total_reels,
+        -- Período anterior (para calcular variação %)
+        COALESCE(SUM(CASE WHEN date BETWEEN ${prev_from} AND ${prev_to} THEN reach       END), 0)::int AS prev_reach,
+        COALESCE(SUM(CASE WHEN date BETWEEN ${prev_from} AND ${prev_to} THEN impressions END), 0)::int AS prev_impressions,
+        COALESCE(AVG(CASE WHEN date BETWEEN ${prev_from} AND ${prev_to} THEN NULLIF(engagement_rate, 0) END), 0) AS prev_engagement,
+        COALESCE(MAX(CASE WHEN date BETWEEN ${prev_from} AND ${prev_to} THEN followers END), 0)::int AS prev_followers
       FROM metrics_history
       WHERE account_id = ${account_id}
-        AND date >= CURRENT_DATE - ${parseInt(days)}::int
+        AND date >= ${prev_from}
+        AND date <= ${to}
     `
     res.json(summary)
   } catch (err) {

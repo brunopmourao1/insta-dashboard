@@ -6,6 +6,7 @@ import AccountSelector from '../components/ui/AccountSelector'
 import ReachAreaChart from '../components/charts/ReachAreaChart'
 import TagsPieChart from '../components/charts/TagsPieChart'
 import { useAccounts, useMetrics, useTagsSummary, useNotes, useCreateNote, useTopPosts } from '../hooks/useApi'
+import { useFilter } from '../contexts/FilterContext'
 
 const TYPE_ICON = { Reels: Film, Carrossel: LayoutGrid, Post: Rows3 }
 const tabs = ['Overview', 'Reels', 'Carrosséis']
@@ -127,9 +128,12 @@ export default function Conteudo() {
 
   const currentId = accountId || accounts[0]?.id
 
-  const { data: metrics = [] } = useMetrics(currentId)
-  const { data: tagsSummary = [] } = useTagsSummary(currentId)
-  const { data: notes = [] } = useNotes(currentId)
+  const { getDateRange } = useFilter()
+  const range = getDateRange()
+
+  const { data: metrics = [] }                         = useMetrics(currentId, range.from, range.to)
+  const { data: tagsSummary = [] }                     = useTagsSummary(currentId)
+  const { data: notes = [] }                           = useNotes(currentId, range.from, range.to)
   const { data: topPosts = [], isLoading: postsLoading } = useTopPosts(currentId)
 
   // Transforma métricas do banco em formato do gráfico

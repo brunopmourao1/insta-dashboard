@@ -1,21 +1,73 @@
-import { Eye, Hash, Heart, ChevronRight, TrendingUp, AlertTriangle, FileText } from 'lucide-react'
+import { Eye, Hash, Heart, Users, ChevronRight, TrendingUp, AlertTriangle, FileText } from 'lucide-react'
 import PeriodFilter from '../components/ui/PeriodFilter'
 import KpiCard from '../components/ui/KpiCard'
 import { useAccounts, useMetricsSummary } from '../hooks/useApi'
+import { useFilter } from '../contexts/FilterContext'
 import clsx from 'clsx'
 
 const alertConfig = {
   success: { color: 'text-emerald-400', bg: 'bg-emerald-400/10', icon: TrendingUp },
   warning: { color: 'text-amber-400', bg: 'bg-amber-400/10', icon: AlertTriangle },
-  info: { color: 'text-secondary', bg: 'bg-secondary/10', icon: FileText },
+  info:    { color: 'text-secondary',  bg: 'bg-secondary/10',  icon: FileText },
 }
 
-// Alertas são estáticos até ter lógica de anomalias
-const alerts = [
-  { id: '1', type: 'success', title: 'Pico de Alcance', description: 'O post de ontem está performando +40% acima da média móvel de 30 dias.', action: 'Ver análise detalhada' },
-  { id: '2', type: 'warning', title: 'Queda de Engajamento', description: 'Engajamento caiu 12 pontos percentuais nesta semana.', action: 'Analisar últimos posts' },
-  { id: '3', type: 'info', title: 'Relatório Mensal', description: 'O relatório consolidado deste mês está disponível para download.', action: 'Baixar PDF' },
-]
+function pctChange(current, prev) {
+  if (!prev || prev === 0) return null
+  return Number(((current - prev) / prev * 100).toFixed(1))
+}
+
+function buildAlerts(summary) {
+  if (!summary) return []
+  const alerts = []
+
+  const reachChange = pctChange(summary.total_reach, summary.prev_reach)
+  if (reachChange !== null && reachChange >= 20) {
+    alerts.push({
+      id: 'reach-up', type: 'success',
+      title: 'Pico de Alcance',
+      description: `Alcance subiu ${reachChange}% em relação ao período anterior.`,
+      action: 'Ver análise detalhada',
+    })
+  } else if (reachChange !== null && reachChange <= -15) {
+    alerts.push({
+      id: 'reach-down', type: 'warning',
+      title: 'Queda de Alcance',
+      description: `Alcance caiu ${Math.abs(reachChange)}% em relação ao período anterior.`,
+      action: 'Analisar últimos posts',
+    })
+  }
+
+  const engChange = pctChange(Number(summary.avg_engagement), Number(summary.prev_engagement))
+  if (engChange !== null && engChange <= -10) {
+    alerts.push({
+      id: 'eng-down', type: 'warning',
+      title: 'Queda de Engajamento',
+      description: `Taxa de engajamento caiu ${Math.abs(engChange)}% vs período anterior.`,
+      action: 'Analisar conteúdo recente',
+    })
+  }
+
+  const followerGain = (summary.current_followers || 0) - (summary.start_followers || 0)
+  if (followerGain > 0) {
+    alerts.push({
+      id: 'followers', type: 'info',
+      title: 'Crescimento de Seguidores',
+      description: `+${followerGain.toLocaleString('pt-BR')} seguidores no período selecionado.`,
+      action: 'Ver Audiência',
+    })
+  }
+
+  if (alerts.length === 0) {
+    alerts.push({
+      id: 'stable', type: 'info',
+      title: 'Performance Estável',
+      description: 'Métricas dentro da faixa normal. Sincronize para obter os dados mais recentes.',
+      action: 'Ir para Configurações',
+    })
+  }
+
+  return alerts
+}
 
 function AlertCard({ alert }) {
   const { color, bg, icon: Icon } = alertConfig[alert.type]
@@ -38,9 +90,10 @@ function AlertCard({ alert }) {
 }
 
 function AccountRow({ account, summary }) {
-  const reach = summary?.total_reach || 0
+  const reach     = summary?.total_reach || 0
   const followers = summary?.current_followers || 0
   const engagement = summary?.avg_engagement || 0
+  const gain      = (summary?.current_followers || 0) - (summary?.start_followers || 0)
 
   return (
     <div className="flex items-center gap-3 py-3 border-b border-outline-variant/10 last:border-0 hover:bg-surface-highest/50 -mx-2 px-2 rounded-lg transition-colors">
@@ -65,6 +118,12 @@ function AccountRow({ account, summary }) {
           {followers >= 1000 ? `${(followers / 1000).toFixed(1)}K` : followers}
         </p>
       </div>
+      <div className="text-right shrink-0 hidden md:block">
+        <p className="text-xs text-on-surface-variant">Ganho</p>
+        <p className={clsx('text-sm font-semibold font-display', gain >= 0 ? 'text-emerald-400' : 'text-red-400')}>
+          {gain >= 0 ? '+' : ''}{gain}
+        </p>
+      </div>
       <div className="text-right shrink-0 hidden sm:block">
         <p className="text-xs text-on-surface-variant">Eng.</p>
         <p className="text-sm font-semibold text-on-surface font-display">{Number(engagement).toFixed(1)}%</p>
@@ -74,15 +133,16 @@ function AccountRow({ account, summary }) {
   )
 }
 
-function AccountRowWithData({ account }) {
-  const { data: summary } = useMetricsSummary(account.id, 30)
+function AccountRowWithData({ account, range }) {
+  const { data: summary } = useMetricsSummary(account.id, range)
   return <AccountRow account={account} summary={summary} />
 }
 
 export default function VisaoAguia() {
   const { data: accounts = [], isLoading } = useAccounts()
+  const { getDateRange } = useFilter()
+  const range = getDateRange()
 
-  // Agregar KPIs de todas as contas — será preenchido quando as contas carregarem
   return (
     <div className="space-y-5">
       <div>
@@ -94,10 +154,8 @@ export default function VisaoAguia() {
 
       <PeriodFilter />
 
-      {/* KPIs */}
-      <AggregateKpis accounts={accounts} />
+      <AggregateKpis accounts={accounts} range={range} />
 
-      {/* Comparativo + Alertas */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 bg-surface-low rounded-xl p-4 md:p-5 border border-outline-variant/10">
           <div className="flex items-center justify-between mb-4">
@@ -112,43 +170,67 @@ export default function VisaoAguia() {
           ) : (
             <div>
               {accounts.map((account) => (
-                <AccountRowWithData key={account.id} account={account} />
+                <AccountRowWithData key={account.id} account={account} range={range} />
               ))}
             </div>
           )}
         </div>
 
-        <div className="space-y-3">
-          <h2 className="font-display font-semibold text-on-surface">Alertas</h2>
-          {alerts.map((alert) => (
-            <AlertCard key={alert.id} alert={alert} />
-          ))}
-        </div>
+        <DynamicAlerts accounts={accounts} range={range} />
       </div>
     </div>
   )
 }
 
-function AggregateKpis({ accounts }) {
-  // Busca summary para a primeira conta como referência principal
+function AggregateKpis({ accounts, range }) {
   const primaryId = accounts[0]?.id
-  const { data: summary, isLoading } = useMetricsSummary(primaryId, 30)
+  const { data: summary, isLoading } = useMetricsSummary(primaryId, range)
 
   if (isLoading || !summary) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        {[1, 2, 3].map((i) => (
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+        {[1, 2, 3, 4].map((i) => (
           <div key={i} className="h-24 bg-surface-low rounded-xl animate-pulse" />
         ))}
       </div>
     )
   }
 
+  const reachChange      = pctChange(summary.total_reach, summary.prev_reach)
+  const impressionsChange = pctChange(summary.total_impressions, summary.prev_impressions)
+  const engagementChange = pctChange(Number(summary.avg_engagement), Number(summary.prev_engagement))
+
+  const followerGain   = (summary.current_followers || 0) - (summary.start_followers || 0)
+  // Compara seguidores atuais vs contagem do período anterior
+  const followerChange = pctChange(summary.current_followers, summary.prev_followers)
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-      <KpiCard label="Total Reach" value={summary.total_reach} change={12.6} icon={Eye} />
-      <KpiCard label="Total Impressions" value={summary.total_impressions} change={0.1} icon={Hash} />
-      <KpiCard label="Engagement Rate" value={Number(summary.avg_engagement).toFixed(1)} change={-2.3} suffix="%" icon={Heart} />
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+      <KpiCard label="Total Reach"       value={summary.total_reach}                            change={reachChange}       icon={Eye} />
+      <KpiCard label="Impressões"        value={summary.total_impressions}                      change={impressionsChange}  icon={Hash} />
+      <KpiCard label="Engagement Rate"   value={Number(summary.avg_engagement).toFixed(1)}      change={engagementChange}  suffix="%" icon={Heart} />
+      <KpiCard label="Seguidores Ganhos" value={followerGain >= 0 ? `+${followerGain}` : followerGain} change={followerChange} icon={Users} />
+    </div>
+  )
+}
+
+function DynamicAlerts({ accounts, range }) {
+  const primaryId = accounts[0]?.id
+  const { data: summary, isLoading } = useMetricsSummary(primaryId, range)
+  const alerts = buildAlerts(summary)
+
+  return (
+    <div className="space-y-3">
+      <h2 className="font-display font-semibold text-on-surface">Alertas</h2>
+      {isLoading && primaryId ? (
+        <div className="h-20 bg-surface-highest rounded-xl animate-pulse" />
+      ) : alerts.length > 0 ? (
+        alerts.map((alert) => <AlertCard key={alert.id} alert={alert} />)
+      ) : (
+        <p className="text-xs text-on-surface-variant py-4 text-center">
+          Conecte uma conta para ver alertas.
+        </p>
+      )}
     </div>
   )
 }

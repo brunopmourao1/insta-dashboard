@@ -1,8 +1,8 @@
 # Gestão da Jaque — Checklist Mestre do Projeto
 
 **Responsável:** Bruno Mourão  
-**Última atualização:** 2026-04-21  
-**Status geral:** Fase 6 em produção — dados reais ativos, @brunomourao1 conectada
+**Última atualização:** 2026-04-22  
+**Status geral:** Fase 6 em produção — todos os dados de todas as telas são reais
 
 ---
 
@@ -209,10 +209,25 @@ Ao iniciar qualquer sessão, leia este arquivo primeiro. Ele é a fonte única d
 
 ## Pendências prioritárias para próxima sessão
 
-1. **Conectar @queline_** — ir em Configurações → "Conectar conta Instagram" → OAuth
-2. **Validar dados reais** nas telas de Audiência, Performance e Conteúdo vs. Instagram Insights nativo
-3. **Testar fluxo completo** da segunda conta depois de conectada
-4. **Instalar PWA no iPhone** — acessar https://insta-dashboard-five.vercel.app no Safari e "Adicionar à tela de início"
+1. **Sincronizar conta @brunomourao1** → Configurações → Sincronizar (para popular engagement_rate no banco com dados reais dos posts)
+2. **Conectar @queline_** — ir em Configurações → "Conectar conta Instagram" → OAuth
+3. **Validar dados reais** nas telas de Audiência, Performance e Conteúdo vs. Instagram Insights nativo
+4. **Testar fluxo completo** da segunda conta depois de conectada
+5. **Instalar PWA no iPhone** — acessar https://insta-dashboard-five.vercel.app no Safari e "Adicionar à tela de início"
+
+## Alterações realizadas em 2026-04-22
+
+- Backend `/api/metrics/summary` agora retorna `prev_reach`, `prev_impressions`, `prev_engagement` (período anterior) para calcular variação % real
+- Backend `/api/instagram/heatmap/:id` agora retorna `hourlyActivity` (alcance médio por hora, normalizado 0-100)  
+- Backend `syncAccountMetrics` agora calcula e salva `engagement_rate` por dia a partir dos últimos 20 posts reais
+- KpiCard aceita `change=null` → oculta badge de variação quando não há período anterior para comparar
+- Performance.jsx: removido `reelsRetention` (era mock do `data/mock.js`), substituído por gráfico de barras real "Performance por Tipo de Conteúdo" (Reels vs Carrossel vs Post)
+- Performance.jsx: variações % dos KPIs calculadas do banco (prev_reach, prev_impressions)
+- Performance.jsx: engagement rate calculado dos posts reais (via useTopPosts), não mais sempre 0
+- VisaoAguia.jsx: variações % dos KPIs calculadas do banco
+- VisaoAguia.jsx: alertas dinâmicos baseados em comparação real de períodos (não mais texto fixo)
+- Audiencia.jsx: `activityByHour` hardcoded removido, substituído por `hourlyActivity` do endpoint heatmap (dados reais de posts)
+- Audiencia.jsx: "Melhor horário para postar" hardcoded removido, derivado de `efficiency[0]` do heatmap
 
 ---
 

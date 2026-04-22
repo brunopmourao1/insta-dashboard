@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import AppLayout from './components/layout/AppLayout'
 import ProtectedRoute from './components/layout/ProtectedRoute'
 import { AuthProvider } from './contexts/AuthContext'
+import { FilterProvider } from './contexts/FilterContext'
 
 const Login        = lazy(() => import('./pages/Login'))
 const VisaoAguia   = lazy(() => import('./pages/VisaoAguia'))
@@ -24,6 +25,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <FilterProvider>
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/login" element={<Login />} />
@@ -38,6 +40,7 @@ export default function App() {
             </Route>
           </Routes>
         </Suspense>
+        </FilterProvider>
       </AuthProvider>
     </BrowserRouter>
   )

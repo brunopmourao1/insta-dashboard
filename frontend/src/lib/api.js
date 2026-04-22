@@ -51,8 +51,11 @@ export const api = {
     if (to) params.set('to', to)
     return request(`/metrics?${params}`)
   },
-  getMetricsSummary: (accountId, days = 30) =>
-    request(`/metrics/summary?account_id=${accountId}&days=${days}`),
+  // range = { from, to, prevFrom, prevTo } vindo do FilterContext.getDateRange()
+  getMetricsSummary: (accountId, range) => {
+    const { from, to, prevFrom, prevTo } = range
+    return request(`/metrics/summary?account_id=${accountId}&from=${from}&to=${to}&prev_from=${prevFrom}&prev_to=${prevTo}`)
+  },
   createMetric: (data) => request('/metrics', { method: 'POST', body: JSON.stringify(data) }),
 
   // Tags

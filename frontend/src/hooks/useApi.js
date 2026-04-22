@@ -16,11 +16,12 @@ export function useMetrics(accountId, from, to) {
   })
 }
 
-export function useMetricsSummary(accountId, days = 30) {
+// range = { from, to, prevFrom, prevTo } do FilterContext.getDateRange()
+export function useMetricsSummary(accountId, range) {
   return useQuery({
-    queryKey: ['metrics-summary', accountId, days],
-    queryFn: () => api.getMetricsSummary(accountId, days),
-    enabled: !!accountId,
+    queryKey: ['metrics-summary', accountId, range?.from, range?.to],
+    queryFn: () => api.getMetricsSummary(accountId, range),
+    enabled: !!accountId && !!range?.from,
     staleTime: 30_000,
   })
 }

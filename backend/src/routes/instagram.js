@@ -300,6 +300,28 @@ router.get('/heatmap/:accountId', authMiddleware, async (req, res) => {
       .slice(0, 4)
       .map((item, i) => ({ ...item, level: i === 0 ? 'high' : i < 3 ? 'medium' : 'low' }))
 
+    // Atividade por hora: normaliza alcance médio por hora para exibição no gráfico de Audiência
+    const DISPLAY_HOURS = ['06h', '08h', '10h', '12h', '14h', '16h', '18h', '20h', '22h', '00h']
+    const HOUR_INTS     = [6, 8, 10, 12, 14, 16, 18, 20, 22, 0]
+
+    let hourlyActivity = []
+    if (posts.length > 0) {
+      const maxHourReach = Math.max(
+        ...HOUR_INTS.map(h => {
+          const key = `${String(h).padStart(2, '0')}:00`
+          const d = hourMap[key]
+          return d && d.count > 0 ? d.reach / d.count : 0
+        })
+      ) || 1
+
+      hourlyActivity = HOUR_INTS.map((h, i) => {
+        const key = `${String(h).padStart(2, '0')}:00`
+        const d = hourMap[key] || { reach: 0, count: 0 }
+        const avgReach = d.count > 0 ? d.reach / d.count : 0
+        return { hour: DISPLAY_HOURS[i], value: Math.round((avgReach / maxHourReach) * 100) }
+      })
+    }
+
     res.json({
       heatmap: {
         days: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'],
@@ -307,6 +329,7 @@ router.get('/heatmap/:accountId', authMiddleware, async (req, res) => {
         values,
       },
       efficiency,
+      hourlyActivity,
       postsAnalyzed: posts.length,
     })
   } catch (err) {

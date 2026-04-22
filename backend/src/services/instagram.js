@@ -303,6 +303,45 @@ export async function syncAccountMetrics(accountId, igUserId, token, sql, daysBa
     if (row) stored.push(row)
   }
 
+  // Calcula engagement_rate por dia a partir dos posts recentes
+  try {
+    const mediaList = await fetchMedia(token, 20)
+    const postResults = await Promise.allSettled(
+      mediaList.map(async (media) => {
+        const insights = await fetchMediaInsights(media.id, token)
+        return {
+          date: new Date(media.timestamp).toISOString().split('T')[0],
+          likes: media.like_count || 0,
+          comments: media.comments_count || 0,
+          reach: insights.reach || 0,
+          saves: insights.saved || 0,
+          shares: insights.shares || 0,
+        }
+      })
+    )
+
+    const byDate = {}
+    for (const r of postResults) {
+      if (r.status !== 'fulfilled') continue
+      const { date, likes, comments, reach, saves, shares } = r.value
+      if (!byDate[date]) byDate[date] = { engagement: 0, reach: 0 }
+      byDate[date].engagement += likes + comments + saves + shares
+      byDate[date].reach += reach
+    }
+
+    for (const [date, d] of Object.entries(byDate)) {
+      if (d.reach === 0) continue
+      const rate = ((d.engagement / d.reach) * 100).toFixed(2)
+      await sql`
+        UPDATE metrics_history
+        SET engagement_rate = ${rate}
+        WHERE account_id = ${accountId} AND date = ${date}
+      `
+    }
+  } catch (err) {
+    console.warn('[sync] engagement_rate não calculado:', err.message)
+  }
+
   return {
     profile,
     daysStored: stored.length,

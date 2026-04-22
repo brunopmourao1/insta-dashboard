@@ -9,6 +9,7 @@ function fmt(value, suffix) {
 }
 
 export default function KpiCard({ label, value, change, suffix, icon: Icon, iconColor }) {
+  const hasChange = change !== null && change !== undefined
   const positive = change >= 0
 
   return (
@@ -17,17 +18,19 @@ export default function KpiCard({ label, value, change, suffix, icon: Icon, icon
         <div className={clsx('w-8 h-8 rounded-lg flex items-center justify-center', iconColor || 'bg-primary-container/20')}>
           {Icon && <Icon size={16} className="text-primary" />}
         </div>
-        <span
-          className={clsx(
-            'flex items-center gap-0.5 text-xs font-medium px-2 py-0.5 rounded-full',
-            positive
-              ? 'text-emerald-400 bg-emerald-400/10'
-              : 'text-red-400 bg-red-400/10',
-          )}
-        >
-          {positive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-          {positive ? '+' : ''}{change}%
-        </span>
+        {hasChange && (
+          <span
+            className={clsx(
+              'flex items-center gap-0.5 text-xs font-medium px-2 py-0.5 rounded-full',
+              positive
+                ? 'text-emerald-400 bg-emerald-400/10'
+                : 'text-red-400 bg-red-400/10',
+            )}
+          >
+            {positive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+            {positive ? '+' : ''}{change}%
+          </span>
+        )}
       </div>
       <p className="font-display text-3xl font-bold text-on-surface tracking-tight">
         {fmt(value, suffix)}

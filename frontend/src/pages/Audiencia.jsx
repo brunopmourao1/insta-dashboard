@@ -5,14 +5,8 @@ import clsx from 'clsx'
 import PeriodFilter from '../components/ui/PeriodFilter'
 import AccountSelector from '../components/ui/AccountSelector'
 import FollowerGrowthChart from '../components/charts/FollowerGrowthChart'
-import { useAccounts, useMetrics, useDemographics } from '../hooks/useApi'
-
-const activityByHour = [
-  { hour: '06h', value: 15 }, { hour: '08h', value: 32 }, { hour: '10h', value: 48 },
-  { hour: '12h', value: 61 }, { hour: '14h', value: 55 }, { hour: '16h', value: 70 },
-  { hour: '18h', value: 88 }, { hour: '20h', value: 95 }, { hour: '22h', value: 72 },
-  { hour: '00h', value: 38 },
-]
+import { useAccounts, useMetrics, useDemographics, useHeatmap, useMetricsSummary } from '../hooks/useApi'
+import { useFilter } from '../contexts/FilterContext'
 
 function GenderTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
@@ -54,35 +48,54 @@ function ActivityBar({ hour, value }) {
   )
 }
 
+function bestTimeLabel(efficiency) {
+  if (!efficiency || efficiency.length === 0) return null
+  const top = efficiency[0]
+  const hourLabel = top.time ? top.time.split(' –')[0].replace(':00', 'h') : ''
+  const daysShort = top.days
+    ? top.days.split(',').slice(0, 2).map(d => d.trim()).join(', ')
+    : ''
+  return daysShort ? `${daysShort}, ${hourLabel}` : hourLabel
+}
+
 export default function Audiencia() {
   const { data: accounts = [] } = useAccounts()
   const [accountId, setAccountId] = useState(null)
   const currentId = accountId || accounts[0]?.id
 
-  const { data: metrics = [] } = useMetrics(currentId)
-  const { data: demo = {} } = useDemographics(currentId)
+  const { getDateRange } = useFilter()
+  const range = getDateRange()
 
-  const audienceGender = demo.gender || []
-  const audienceAge = demo.age || []
-  const topLocations = demo.cities || []
+  const { data: metrics = [] } = useMetrics(currentId, range.from, range.to)
+  const { data: summary }      = useMetricsSummary(currentId, range)
+  const { data: demo = {} }    = useDemographics(currentId)
+  const { data: heatmapResult } = useHeatmap(currentId)
+
+  const audienceGender  = demo.gender || []
+  const audienceAge     = demo.age || []
+  const topLocations    = demo.cities || []
   const maxAge = audienceAge.length > 0 ? Math.max(...audienceAge.map((a) => a.value)) : 1
 
-  // Dados de crescimento de seguidores do banco
+  // Atividade por hora: derivada de posts reais (alcance médio por hora)
+  const activityByHour = heatmapResult?.hourlyActivity || []
+  const hourEfficiency = heatmapResult?.efficiency || []
+  const bestTime       = bestTimeLabel(hourEfficiency)
+
   const followerGrowth = metrics
     .slice()
     .reverse()
-    .map((m, i) => ({
-      day: i + 1,
-      followers: m.followers || 0,
-    }))
+    .map((m, i) => ({ day: i + 1, followers: m.followers || 0 }))
 
-  const currentFollowers = metrics[0]?.followers || 0
-  const startFollowers = metrics[metrics.length - 1]?.followers || 1
-  const growthPct = (((currentFollowers - startFollowers) / startFollowers) * 100).toFixed(1)
+  // Ganho de seguidores do banco (mais preciso que min/max da série)
+  const followerGain     = (summary?.current_followers || 0) - (summary?.start_followers || 0)
+  const currentFollowers = summary?.current_followers || metrics[0]?.followers || 0
+  const startFollowers   = summary?.start_followers   || metrics[metrics.length - 1]?.followers || 1
+  const growthPct = startFollowers > 0
+    ? (((currentFollowers - startFollowers) / startFollowers) * 100).toFixed(1)
+    : '0.0'
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-on-surface">Audiência & Demographics</h1>
@@ -102,15 +115,25 @@ export default function Audiencia() {
             <div>
               <h2 className="font-display font-semibold text-on-surface">Crescimento de Seguidores</h2>
               <p className="text-xs text-on-surface-variant mt-0.5">
-                Últimos {metrics.length} dias · {growthPct > 0 ? '+' : ''}{growthPct}%
+                {metrics.length} dias · {currentFollowers >= 1000 ? `${(currentFollowers / 1000).toFixed(1)}K` : currentFollowers} seguidores atuais
               </p>
             </div>
-            <span className={clsx(
-              'text-xs font-semibold px-2 py-0.5 rounded-full',
-              growthPct >= 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10'
-            )}>
-              {growthPct > 0 ? '+' : ''}{growthPct}%
-            </span>
+            <div className="flex items-center gap-2">
+              {followerGain !== 0 && (
+                <span className={clsx(
+                  'text-xs font-semibold px-2 py-0.5 rounded-full font-display',
+                  followerGain >= 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10'
+                )}>
+                  {followerGain >= 0 ? '+' : ''}{followerGain.toLocaleString('pt-BR')} seguidores
+                </span>
+              )}
+              <span className={clsx(
+                'text-xs font-semibold px-2 py-0.5 rounded-full',
+                growthPct >= 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-red-400 bg-red-400/10'
+              )}>
+                {growthPct > 0 ? '+' : ''}{growthPct}%
+              </span>
+            </div>
           </div>
           {followerGrowth.length > 0 ? (
             <FollowerGrowthChart data={followerGrowth} />
@@ -123,32 +146,40 @@ export default function Audiencia() {
 
         <div className="bg-surface-low rounded-xl p-5 border border-outline-variant/10">
           <h2 className="font-display font-semibold text-on-surface mb-4">Gênero</h2>
-          <ResponsiveContainer width="100%" height={130}>
-            <PieChart>
-              <Pie
-                data={audienceGender}
-                cx="50%"
-                cy="50%"
-                innerRadius={38}
-                outerRadius={60}
-                paddingAngle={3}
-                dataKey="value"
-                nameKey="name"
-              >
-                {audienceGender.map((g) => <Cell key={g.name} fill={g.color} />)}
-              </Pie>
-              <Tooltip content={<GenderTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="space-y-1.5 mt-3">
-            {audienceGender.map((g) => (
-              <div key={g.name} className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full shrink-0" style={{ background: g.color }} />
-                <span className="text-xs text-on-surface flex-1">{g.name}</span>
-                <span className="text-xs font-semibold font-display text-on-surface">{g.value}%</span>
+          {audienceGender.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={130}>
+                <PieChart>
+                  <Pie
+                    data={audienceGender}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={38}
+                    outerRadius={60}
+                    paddingAngle={3}
+                    dataKey="value"
+                    nameKey="name"
+                  >
+                    {audienceGender.map((g) => <Cell key={g.name} fill={g.color} />)}
+                  </Pie>
+                  <Tooltip content={<GenderTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="space-y-1.5 mt-3">
+                {audienceGender.map((g) => (
+                  <div key={g.name} className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full shrink-0" style={{ background: g.color }} />
+                    <span className="text-xs text-on-surface flex-1">{g.name}</span>
+                    <span className="text-xs font-semibold font-display text-on-surface">{g.value}%</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className="h-40 flex items-center justify-center text-xs text-on-surface-variant">
+              Dados indisponíveis
+            </div>
+          )}
         </div>
       </div>
 
@@ -156,11 +187,17 @@ export default function Audiencia() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-surface-low rounded-xl p-5 border border-outline-variant/10">
           <h2 className="font-display font-semibold text-on-surface mb-4">Faixa Etária</h2>
-          <div className="space-y-3">
-            {audienceAge.map((a) => (
-              <AgeBar key={a.range} range={a.range} value={a.value} maxValue={maxAge} />
-            ))}
-          </div>
+          {audienceAge.length > 0 ? (
+            <div className="space-y-3">
+              {audienceAge.map((a) => (
+                <AgeBar key={a.range} range={a.range} value={a.value} maxValue={maxAge} />
+              ))}
+            </div>
+          ) : (
+            <div className="h-32 flex items-center justify-center text-xs text-on-surface-variant">
+              Dados indisponíveis
+            </div>
+          )}
         </div>
 
         <div className="bg-surface-low rounded-xl p-5 border border-outline-variant/10">
@@ -168,15 +205,21 @@ export default function Audiencia() {
             <MapPin size={14} className="text-primary" />
             <h2 className="font-display font-semibold text-on-surface">Top Localidades</h2>
           </div>
-          <div className="space-y-3">
-            {topLocations.map((loc, i) => (
-              <div key={loc.city} className="flex items-center gap-3">
-                <span className="font-display text-xs font-bold text-on-surface-variant w-4">{i + 1}</span>
-                <span className="text-sm text-on-surface flex-1">{loc.city}</span>
-                <span className="font-display text-sm font-bold text-primary">{loc.value}%</span>
-              </div>
-            ))}
-          </div>
+          {topLocations.length > 0 ? (
+            <div className="space-y-3">
+              {topLocations.map((loc, i) => (
+                <div key={loc.city} className="flex items-center gap-3">
+                  <span className="font-display text-xs font-bold text-on-surface-variant w-4">{i + 1}</span>
+                  <span className="text-sm text-on-surface flex-1">{loc.city}</span>
+                  <span className="font-display text-sm font-bold text-primary">{loc.value}%</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-32 flex items-center justify-center text-xs text-on-surface-variant">
+              Dados indisponíveis
+            </div>
+          )}
         </div>
       </div>
 
@@ -188,21 +231,31 @@ export default function Audiencia() {
               <Clock size={14} className="text-primary" />
               <h2 className="font-display font-semibold text-on-surface">Padrões de Atividade</h2>
             </div>
-            <p className="text-xs text-on-surface-variant mt-0.5">Horários de maior presença da audiência</p>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              Alcance médio dos seus posts por horário de publicação
+            </p>
           </div>
-          <div className="flex items-center gap-2 bg-primary-container/15 border border-primary-container/30 rounded-xl px-4 py-2">
-            <Zap size={14} className="text-primary shrink-0" />
-            <div>
-              <p className="text-[10px] text-on-surface-variant leading-none">Melhor horário para postar</p>
-              <p className="text-sm font-display font-bold text-primary mt-0.5">Terça–Quinta, 20h</p>
+          {bestTime && (
+            <div className="flex items-center gap-2 bg-primary-container/15 border border-primary-container/30 rounded-xl px-4 py-2">
+              <Zap size={14} className="text-primary shrink-0" />
+              <div>
+                <p className="text-[10px] text-on-surface-variant leading-none">Melhor horário para postar</p>
+                <p className="text-sm font-display font-bold text-primary mt-0.5">{bestTime}</p>
+              </div>
             </div>
+          )}
+        </div>
+        {activityByHour.length > 0 ? (
+          <div className="flex items-end gap-1 sm:gap-2 mt-4 overflow-x-auto pb-1">
+            {activityByHour.map((a) => (
+              <ActivityBar key={a.hour} hour={a.hour} value={a.value} />
+            ))}
           </div>
-        </div>
-        <div className="flex items-end gap-1 sm:gap-2 mt-4 overflow-x-auto pb-1">
-          {activityByHour.map((a) => (
-            <ActivityBar key={a.hour} hour={a.hour} value={a.value} />
-          ))}
-        </div>
+        ) : (
+          <div className="h-20 flex items-center justify-center text-xs text-on-surface-variant animate-pulse">
+            Calculando padrões...
+          </div>
+        )}
       </div>
     </div>
   )
