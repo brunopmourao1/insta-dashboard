@@ -157,30 +157,8 @@ function parseInsightsByDay(insightsData) {
 
 export async function syncAccountMetrics(accountId, igUserId, token, sql, daysBack = 30) {
   const profile = await getUserProfile(igUserId, token)
-  const insights = await getDailyInsights(igUserId, token, daysBack)
-  const byDay = parseInsightsByDay(insights)
 
-  const stored = []
-  for (const [date, metrics] of Object.entries(byDay)) {
-    const [row] = await sql`
-      INSERT INTO metrics_history
-        (account_id, date, followers, reach, impressions, profile_views, website_clicks)
-      VALUES
-        (${accountId}, ${date}, ${profile.followers_count || 0},
-         ${metrics.reach || 0}, ${metrics.views || 0},
-         ${metrics.profile_views || 0}, ${metrics.website_clicks || 0})
-      ON CONFLICT (account_id, date) DO UPDATE SET
-        followers      = EXCLUDED.followers,
-        reach          = EXCLUDED.reach,
-        impressions    = EXCLUDED.impressions,
-        profile_views  = EXCLUDED.profile_views,
-        website_clicks = EXCLUDED.website_clicks
-      RETURNING id, date
-    `
-    if (row) stored.push(row)
-  }
-
-  // Atualiza username e foto de perfil
+  // Atualiza dados do perfil na tabela accounts
   await sql`
     UPDATE accounts SET
       ig_username  = ${profile.username},
@@ -189,5 +167,57 @@ export async function syncAccountMetrics(accountId, igUserId, token, sql, daysBa
     WHERE id = ${accountId}
   `
 
-  return { profile, daysStored: stored.length }
+  // Tenta buscar insights (requer instagram_business_manage_insights)
+  let byDay = {}
+  let insightsAvailable = false
+  try {
+    const insights = await getDailyInsights(igUserId, token, daysBack)
+    byDay = parseInsightsByDay(insights)
+    insightsAvailable = true
+  } catch (err) {
+    console.warn('[sync] Insights indisponíveis (permissão necessária):', err.message)
+  }
+
+  const stored = []
+
+  if (insightsAvailable && Object.keys(byDay).length > 0) {
+    // Salva com dados completos de insights
+    for (const [date, metrics] of Object.entries(byDay)) {
+      const [row] = await sql`
+        INSERT INTO metrics_history
+          (account_id, date, followers, reach, impressions, profile_views, website_clicks)
+        VALUES
+          (${accountId}, ${date}, ${profile.followers_count || 0},
+           ${metrics.reach || 0}, ${metrics.views || 0},
+           ${metrics.profile_views || 0}, ${metrics.website_clicks || 0})
+        ON CONFLICT (account_id, date) DO UPDATE SET
+          followers      = EXCLUDED.followers,
+          reach          = EXCLUDED.reach,
+          impressions    = EXCLUDED.impressions,
+          profile_views  = EXCLUDED.profile_views,
+          website_clicks = EXCLUDED.website_clicks
+        RETURNING id, date
+      `
+      if (row) stored.push(row)
+    }
+  } else {
+    // Fallback: salva apenas seguidores de hoje
+    const today = new Date().toISOString().split('T')[0]
+    const [row] = await sql`
+      INSERT INTO metrics_history (account_id, date, followers)
+      VALUES (${accountId}, ${today}, ${profile.followers_count || 0})
+      ON CONFLICT (account_id, date) DO UPDATE SET
+        followers = EXCLUDED.followers
+      RETURNING id, date
+    `
+    if (row) stored.push(row)
+  }
+
+  return {
+    profile,
+    daysStored: stored.length,
+    insightsAvailable,
+    followers: profile.followers_count,
+    mediaCount: profile.media_count,
+  }
 }
