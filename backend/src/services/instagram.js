@@ -14,13 +14,18 @@ export function getAuthUrl() {
   const params = new URLSearchParams({
     client_id: APP_ID,
     redirect_uri: REDIRECT_URI,
-    scope: 'instagram_business_basic,instagram_business_manage_insights',
+    scope: 'instagram_business_basic',
     response_type: 'code',
   })
+  console.log('[Instagram] Auth URL gerada:', `${AUTH_BASE}/oauth/authorize?${params}`)
   return `${AUTH_BASE}/oauth/authorize?${params}`
 }
 
 export async function exchangeCodeForToken(code) {
+  console.log('[Instagram] Trocando código por token...')
+  console.log('[Instagram] APP_ID:', APP_ID)
+  console.log('[Instagram] REDIRECT_URI:', REDIRECT_URI)
+
   const body = new URLSearchParams({
     client_id: APP_ID,
     client_secret: APP_SECRET,
@@ -35,8 +40,17 @@ export async function exchangeCodeForToken(code) {
     body: body.toString(),
   })
 
-  const data = await res.json()
-  if (data.error) throw new Error(data.error_message || data.error?.message || 'Erro ao trocar código por token')
+  const text = await res.text()
+  console.log('[Instagram] Resposta do token exchange:', text)
+
+  let data
+  try {
+    data = JSON.parse(text)
+  } catch {
+    throw new Error(`Resposta inválida da API: ${text}`)
+  }
+
+  if (data.error) throw new Error(data.error_message || data.error?.message || JSON.stringify(data))
   return data // { access_token, user_id }
 }
 
