@@ -51,7 +51,13 @@ export async function exchangeCodeForToken(code) {
   }
 
   if (data.error) throw new Error(data.error_message || data.error?.message || JSON.stringify(data))
-  return data // { access_token, user_id }
+
+  // user_id do Instagram excede Number.MAX_SAFE_INTEGER — extrair como string
+  const userIdMatch = text.match(/"user_id"\s*:\s*(\d+)/)
+  const userId = userIdMatch ? userIdMatch[1] : String(data.user_id)
+  console.log('[Instagram] user_id extraído como string:', userId)
+
+  return { access_token: data.access_token, user_id: userId }
 }
 
 export async function getLongLivedToken(shortLivedToken) {
@@ -91,13 +97,15 @@ export async function refreshLongLivedToken(currentToken) {
 // ── Graph API ──────────────────────────────────────────────────────────────
 
 export async function getUserProfile(igUserId, token) {
-  console.log('[Instagram] Buscando perfil do usuário:', igUserId)
+  // Usa /me em vez de /{id} para evitar problemas de precisão numérica
+  const endpoint = `${API_BASE}/me`
+  console.log('[Instagram] Buscando perfil via /me (igUserId para ref:', igUserId, ')')
   const params = new URLSearchParams({
-    fields: 'id,username,name,profile_picture_url,followers_count,follows_count,media_count',
+    fields: 'user_id,username,name,profile_picture_url,followers_count,follows_count,media_count',
     access_token: token,
   })
 
-  const res = await fetch(`${API_BASE}/${igUserId}?${params}`)
+  const res = await fetch(`${endpoint}?${params}`)
   const text = await res.text()
   console.log('[Instagram] Resposta perfil:', text)
 
