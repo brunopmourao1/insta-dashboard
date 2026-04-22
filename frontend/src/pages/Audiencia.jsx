@@ -8,6 +8,17 @@ import FollowerGrowthChart from '../components/charts/FollowerGrowthChart'
 import { useAccounts, useMetrics, useDemographics, useHeatmap, useMetricsSummary } from '../hooks/useApi'
 import { useFilter } from '../contexts/FilterContext'
 
+function EmptyDemographic({ height = 'h-32' }) {
+  return (
+    <div className={`${height} flex flex-col items-center justify-center gap-1.5 text-center px-4`}>
+      <p className="text-xs text-on-surface-variant">Dados indisponíveis</p>
+      <p className="text-[10px] text-on-surface-variant/60 leading-relaxed">
+        O Instagram leva alguns dias para gerar dados<br />demográficos em contas recém-convertidas.
+      </p>
+    </div>
+  )
+}
+
 function GenderTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
   return (
@@ -176,9 +187,7 @@ export default function Audiencia() {
               </div>
             </>
           ) : (
-            <div className="h-40 flex items-center justify-center text-xs text-on-surface-variant">
-              Dados indisponíveis
-            </div>
+            <EmptyDemographic height="h-40" />
           )}
         </div>
       </div>
@@ -194,9 +203,7 @@ export default function Audiencia() {
               ))}
             </div>
           ) : (
-            <div className="h-32 flex items-center justify-center text-xs text-on-surface-variant">
-              Dados indisponíveis
-            </div>
+            <EmptyDemographic height="h-32" />
           )}
         </div>
 
@@ -216,9 +223,7 @@ export default function Audiencia() {
               ))}
             </div>
           ) : (
-            <div className="h-32 flex items-center justify-center text-xs text-on-surface-variant">
-              Dados indisponíveis
-            </div>
+            <EmptyDemographic height="h-32" />
           )}
         </div>
       </div>

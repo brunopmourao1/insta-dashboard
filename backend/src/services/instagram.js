@@ -270,9 +270,12 @@ export async function syncAccountMetrics(accountId, igUserId, token, sql, daysBa
 
   const stored = []
 
+  const today = new Date().toISOString().split('T')[0]
+
   if (insightsAvailable && Object.keys(byDay).length > 0) {
-    // Salva com dados completos de insights
     for (const [date, metrics] of Object.entries(byDay)) {
+      // Seguidores: só atualiza para hoje — datas passadas preservam o valor original
+      // (evita sobrescrever histórico com o count atual sempre que sincroniza)
       const [row] = await sql`
         INSERT INTO metrics_history
           (account_id, date, followers, reach, impressions, profile_views, website_clicks)
@@ -281,7 +284,9 @@ export async function syncAccountMetrics(accountId, igUserId, token, sql, daysBa
            ${metrics.reach || 0}, ${metrics.views || 0},
            ${metrics.profile_views || 0}, ${metrics.website_clicks || 0})
         ON CONFLICT (account_id, date) DO UPDATE SET
-          followers      = EXCLUDED.followers,
+          followers      = CASE WHEN metrics_history.date = ${today}
+                                THEN EXCLUDED.followers
+                                ELSE metrics_history.followers END,
           reach          = EXCLUDED.reach,
           impressions    = EXCLUDED.impressions,
           profile_views  = EXCLUDED.profile_views,

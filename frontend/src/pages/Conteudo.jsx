@@ -136,6 +136,12 @@ export default function Conteudo() {
   const { data: notes = [] }                           = useNotes(currentId, range.from, range.to)
   const { data: topPosts = [], isLoading: postsLoading } = useTopPosts(currentId)
 
+  const filteredPosts = activeTab === 'Reels'
+    ? topPosts.filter((p) => p.type === 'Reels')
+    : activeTab === 'Carrosséis'
+    ? topPosts.filter((p) => p.type === 'Carrossel')
+    : topPosts
+
   // Transforma métricas do banco em formato do gráfico
   const reachTimeline = metrics.map((m, i) => ({
     day: i + 1,
@@ -197,10 +203,12 @@ export default function Conteudo() {
             <div className="space-y-3">
               {[1,2,3].map(i => <div key={i} className="h-14 bg-surface-highest rounded-lg animate-pulse" />)}
             </div>
-          ) : topPosts.length > 0 ? (
-            topPosts.map((post, i) => <PostRow key={post.id} post={post} rank={i + 1} />)
+          ) : filteredPosts.length > 0 ? (
+            filteredPosts.map((post, i) => <PostRow key={post.id} post={post} rank={i + 1} />)
           ) : (
-            <p className="text-xs text-on-surface-variant py-4 text-center">Nenhum post encontrado</p>
+            <p className="text-xs text-on-surface-variant py-4 text-center">
+              {topPosts.length > 0 ? `Nenhum ${activeTab === 'Carrosséis' ? 'carrossel' : 'reel'} encontrado` : 'Nenhum post encontrado'}
+            </p>
           )}
         </div>
 
