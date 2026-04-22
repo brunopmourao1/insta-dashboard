@@ -47,8 +47,13 @@ router.get('/summary', async (req, res) => {
         COALESCE(SUM(CASE WHEN date BETWEEN ${from} AND ${to} THEN reach       END), 0)::int AS total_reach,
         COALESCE(SUM(CASE WHEN date BETWEEN ${from} AND ${to} THEN impressions END), 0)::int AS total_impressions,
         COALESCE(AVG(CASE WHEN date BETWEEN ${from} AND ${to} THEN NULLIF(engagement_rate, 0) END), 0) AS avg_engagement,
-        COALESCE(MAX(CASE WHEN date BETWEEN ${from} AND ${to} THEN followers   END), 0)::int AS current_followers,
-        COALESCE(MIN(CASE WHEN date BETWEEN ${from} AND ${to} THEN NULLIF(followers, 0) END), 0)::int AS start_followers,
+        -- Seguidores: ponto no tempo, não MIN/MAX dentro do período
+        COALESCE((SELECT followers FROM metrics_history
+                  WHERE account_id = ${account_id} AND date <= ${to} AND followers > 0
+                  ORDER BY date DESC LIMIT 1), 0)::int AS current_followers,
+        COALESCE((SELECT followers FROM metrics_history
+                  WHERE account_id = ${account_id} AND date < ${from} AND followers > 0
+                  ORDER BY date DESC LIMIT 1), 0)::int AS start_followers,
         COALESCE(SUM(CASE WHEN date BETWEEN ${from} AND ${to} THEN posts_count   END), 0)::int AS total_posts,
         COALESCE(SUM(CASE WHEN date BETWEEN ${from} AND ${to} THEN stories_count END), 0)::int AS total_stories,
         COALESCE(SUM(CASE WHEN date BETWEEN ${from} AND ${to} THEN reels_count   END), 0)::int AS total_reels,
@@ -56,7 +61,9 @@ router.get('/summary', async (req, res) => {
         COALESCE(SUM(CASE WHEN date BETWEEN ${prev_from} AND ${prev_to} THEN reach       END), 0)::int AS prev_reach,
         COALESCE(SUM(CASE WHEN date BETWEEN ${prev_from} AND ${prev_to} THEN impressions END), 0)::int AS prev_impressions,
         COALESCE(AVG(CASE WHEN date BETWEEN ${prev_from} AND ${prev_to} THEN NULLIF(engagement_rate, 0) END), 0) AS prev_engagement,
-        COALESCE(MAX(CASE WHEN date BETWEEN ${prev_from} AND ${prev_to} THEN followers END), 0)::int AS prev_followers
+        COALESCE((SELECT followers FROM metrics_history
+                  WHERE account_id = ${account_id} AND date <= ${prev_to} AND followers > 0
+                  ORDER BY date DESC LIMIT 1), 0)::int AS prev_followers
       FROM metrics_history
       WHERE account_id = ${account_id}
         AND date >= ${prev_from}
